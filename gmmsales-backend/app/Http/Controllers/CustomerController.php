@@ -17,24 +17,24 @@ class CustomerController extends Controller
     {
         // Validasi input
         $request->validate([
-            'nama_customer'  => 'required|string|max:255',
-            'alamat'         => 'required|string',
-            'nomor_telepon'  => 'required|numeric|digits_between:10,15',
-            'latitude'       => 'required|numeric|between:-90,90',
-            'longitude'      => 'required|numeric|between:-180,180',
-            'photos'         => 'required|array|min:1|max:3',
-            'photos.*'       => 'required|file|mimes:jpeg,jpg,png|max:5120', // max 5 MB per file
+            'nama_customer' => 'required|string|max:255',
+            'alamat' => 'required|string',
+            'nomor_telepon' => 'required|numeric|digits_between:10,15',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+            'photos' => 'required|array|min:1|max:3',
+            'photos.*' => 'required|file|mimes:jpeg,jpg,png|max:5120', // max 5 MB per file
         ]);
 
         // Simpan data customer
         $customer = Customer::create([
-            'user_id'       => $request->user()->id,
+            'user_id' => $request->user()->id,
             'nama_customer' => $request->nama_customer,
-            'alamat'        => $request->alamat,
+            'alamat' => $request->alamat,
             'nomor_telepon' => $request->nomor_telepon,
-            'latitude'      => $request->latitude,
-            'longitude'     => $request->longitude,
-            'visited_at'    => now(), // waktu kunjungan = waktu request dikirim
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'visited_at' => now(), // waktu kunjungan = waktu request dikirim
         ]);
 
         // Upload foto (1-3 file) ke storage
@@ -42,7 +42,7 @@ class CustomerController extends Controller
             $path = $file->store("customers/{$customer->id}", 'public');
             CustomerPhoto::create([
                 'customer_id' => $customer->id,
-                'photo_path'  => $path,
+                'photo_path' => $path,
             ]);
         }
 
@@ -51,7 +51,7 @@ class CustomerController extends Controller
 
         return response()->json([
             'message' => 'Customer berhasil didaftarkan',
-            'data'    => $this->formatCustomer($customer),
+            'data' => $this->formatCustomer($customer),
         ], 201);
     }
 
@@ -73,12 +73,12 @@ class CustomerController extends Controller
 
         return response()->json([
             'message' => 'Daftar customer berhasil diambil',
-            'data'    => $customers->map(fn($c) => $this->formatCustomer($c)),
-            'meta'    => [
+            'data' => $customers->map(fn($c) => $this->formatCustomer($c)),
+            'meta' => [
                 'current_page' => $customers->currentPage(),
-                'per_page'     => $customers->perPage(),
-                'total'        => $customers->total(),
-                'last_page'    => $customers->lastPage(),
+                'per_page' => $customers->perPage(),
+                'total' => $customers->total(),
+                'last_page' => $customers->lastPage(),
             ],
         ], 200);
     }
@@ -107,7 +107,7 @@ class CustomerController extends Controller
 
         return response()->json([
             'message' => 'Detail customer berhasil diambil',
-            'data'    => $this->formatCustomer($customer),
+            'data' => $this->formatCustomer($customer),
         ], 200);
     }
 
@@ -117,18 +117,93 @@ class CustomerController extends Controller
     private function formatCustomer(Customer $customer): array
     {
         return [
-            'id'             => $customer->id,
-            'nama_customer'  => $customer->nama_customer,
-            'alamat'         => $customer->alamat,
-            'nomor_telepon'  => $customer->nomor_telepon,
-            'latitude'       => $customer->latitude,
-            'longitude'      => $customer->longitude,
-            'visited_at'     => $customer->visited_at?->toDateTimeString(),
-            'created_at'     => $customer->created_at->toDateTimeString(),
-            'photos'         => $customer->photos->map(fn($p) => [
-                'id'        => $p->id,
+            'id' => $customer->id,
+            'nama_customer' => $customer->nama_customer,
+            'alamat' => $customer->alamat,
+            'nomor_telepon' => $customer->nomor_telepon,
+            'latitude' => $customer->latitude,
+            'longitude' => $customer->longitude,
+            'visited_at' => $customer->visited_at?->toDateTimeString(),
+            'created_at' => $customer->created_at->toDateTimeString(),
+            'photos' => $customer->photos->map(fn($p) => [
+                'id' => $p->id,
                 'photo_url' => $p->photo_url,
             ])->values(),
         ];
+    }
+
+    /**
+     * US-8: Menghapus data customer (soft delete)
+     * DELETE /api/customers/{id}
+     */
+    public function destroy(Request $request, $id)
+    {
+        $customer = Customer::find($id);
+
+        if (!$customer) {
+            return response()->json([
+                'message' => 'Customer tidak ditemukan'
+            ], 404);
+        }
+
+        if ($customer->user_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses ke data ini'
+            ], 403);
+        }
+
+        // Hapus foto dari storage
+        foreach ($customer->photos as $photo) {
+            Storage::delete($photo->photo_path);
+            $photo->delete();
+        }
+
+        // Soft delete customer
+        $customer->delete();
+
+        return response()->json([
+            'message' => 'Customer berhasil dihapus'
+        ], 200);
+    }
+
+    /**
+     * US-9: Melihat riwayat pendaftaran customer
+     * GET /api/customers/history
+     */
+    public function history(Request $request)
+    {
+        $query = Customer::with('photos')
+            ->where('user_id', $request->user()->id)
+            ->orderBy('visited_at', 'desc');
+
+        // Filter berdasarkan tanggal jika parameter tersedia
+        if ($request->has('start_date')) {
+            $query->whereDate('visited_at', '>=', $request->start_date);
+        }
+
+        if ($request->has('end_date')) {
+            $query->whereDate('visited_at', '<=', $request->end_date);
+        }
+
+        $history = $query->paginate(10);
+
+        return response()->json([
+            'message' => 'Riwayat customer berhasil diambil',
+            'data' => $history->map(function ($customer) {
+                return [
+                    'id' => $customer->id,
+                    'nama_customer' => $customer->nama_customer,
+                    'alamat' => $customer->alamat,
+                    'foto_utama' => $customer->photos->first()?->photo_url ?? null,
+                    'tanggal_pendaftaran' => $customer->visited_at,
+                ];
+            }),
+            'meta' => [
+                'current_page' => $history->currentPage(),
+                'per_page' => $history->perPage(),
+                'total' => $history->total(),
+                'last_page' => $history->lastPage(),
+            ]
+        ], 200);
     }
 }
