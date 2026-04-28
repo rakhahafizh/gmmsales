@@ -4,19 +4,33 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class AdminCustomerController extends Controller
 {
-    /**
-     * US-10: Admin melihat semua customer dari seluruh sales.
-     * GET /api/admin/customers?start_date=&end_date=&sales_id=&page=
-     */
+    #[OA\Get(
+        path: '/api/admin/customers',
+        summary: 'Daftar semua customer dari seluruh sales (Admin)',
+        description: 'Admin melihat list semua customer beserta info sales yang mendaftarkan. Mendukung filter tanggal dan sales_id.',
+        tags: ['Admin - Customer'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'start_date', in: 'query', required: false, description: 'Filter tanggal mulai (YYYY-MM-DD)', schema: new OA\Schema(type: 'string', format: 'date', example: '2026-04-01')),
+            new OA\Parameter(name: 'end_date', in: 'query', required: false, description: 'Filter tanggal akhir (YYYY-MM-DD)', schema: new OA\Schema(type: 'string', format: 'date', example: '2026-04-30')),
+            new OA\Parameter(name: 'sales_id', in: 'query', required: false, description: 'Filter berdasarkan ID sales tertentu', schema: new OA\Schema(type: 'integer', example: 3)),
+            new OA\Parameter(name: 'page', in: 'query', required: false, description: 'Halaman pagination', schema: new OA\Schema(type: 'integer', default: 1)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Daftar customer berhasil diambil'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Bukan role admin'),
+        ]
+    )]
     public function index(Request $request)
     {
         $query = Customer::with(['photos', 'user'])
             ->latest('visited_at');
 
-        // Filter berdasarkan rentang tanggal kunjungan
         if ($request->filled('start_date')) {
             $query->whereDate('visited_at', '>=', $request->start_date);
         }
@@ -25,7 +39,6 @@ class AdminCustomerController extends Controller
             $query->whereDate('visited_at', '<=', $request->end_date);
         }
 
-        // Filter berdasarkan sales tertentu
         if ($request->filled('sales_id')) {
             $query->where('user_id', $request->sales_id);
         }
@@ -44,15 +57,26 @@ class AdminCustomerController extends Controller
         ], 200);
     }
 
-    /**
-     * US-11: Admin melihat detail lengkap satu customer.
-     * GET /api/admin/customers/{id}
-     */
+    #[OA\Get(
+        path: '/api/admin/customers/{id}',
+        summary: 'Detail customer (Admin)',
+        description: 'Admin melihat detail lengkap satu customer beserta info sales dan seluruh foto kunjungan.',
+        tags: ['Admin - Customer'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Detail customer berhasil diambil'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Bukan role admin'),
+            new OA\Response(response: 404, description: 'Customer tidak ditemukan'),
+        ]
+    )]
     public function show(Request $request, string $id)
     {
         $customer = Customer::with(['photos', 'user'])->find($id);
 
-        // 404 jika customer tidak ditemukan
         if (!$customer) {
             return response()->json([
                 'message' => 'Customer tidak ditemukan',
@@ -65,9 +89,6 @@ class AdminCustomerController extends Controller
         ], 200);
     }
 
-    /**
-     * Helper: format data customer untuk tampilan list (lebih ringkas).
-     */
     private function formatCustomerList(Customer $customer): array
     {
         return [
@@ -88,9 +109,6 @@ class AdminCustomerController extends Controller
         ];
     }
 
-    /**
-     * Helper: format data customer untuk tampilan detail (lengkap).
-     */
     private function formatCustomerDetail(Customer $customer): array
     {
         return [

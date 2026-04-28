@@ -1,0 +1,462 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "GMMSales API Documentation",
+        "description": "Dokumentasi API untuk aplikasi GMMSales - sistem pencatatan kunjungan customer oleh sales lapangan dengan dokumentasi GPS dan foto.",
+        "contact": {
+            "name": "Rakha Hafizh",
+            "email": "rakhahafizh@example.com"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://127.0.0.1:8000",
+            "description": "GMMSales Local Development Server"
+        }
+    ],
+    "paths": {
+        "/api/admin/customers": {
+            "get": {
+                "tags": [
+                    "Admin - Customer"
+                ],
+                "summary": "Daftar semua customer dari seluruh sales (Admin)",
+                "description": "Admin melihat list semua customer beserta info sales yang mendaftarkan. Mendukung filter tanggal dan sales_id.",
+                "operationId": "b6f680074bf044ddc711ba76a8607715",
+                "parameters": [
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Filter tanggal mulai (YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-01"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "Filter tanggal akhir (YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-30"
+                        }
+                    },
+                    {
+                        "name": "sales_id",
+                        "in": "query",
+                        "description": "Filter berdasarkan ID sales tertentu",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 3
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Halaman pagination",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Daftar customer berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan role admin"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/customers/{id}": {
+            "get": {
+                "tags": [
+                    "Admin - Customer"
+                ],
+                "summary": "Detail customer (Admin)",
+                "description": "Admin melihat detail lengkap satu customer beserta info sales dan seluruh foto kunjungan.",
+                "operationId": "480636e03a521c34eae4ab7b1e7b3c28",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detail customer berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan role admin"
+                    },
+                    "404": {
+                        "description": "Customer tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Login user",
+                "description": "Autentikasi user dengan username & password. Mengembalikan token Sanctum jika berhasil.",
+                "operationId": "a3b306d14572d1f4bd6c064b3233e7b8",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "username",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "username": {
+                                        "type": "string",
+                                        "example": "admin"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login berhasil"
+                    },
+                    "401": {
+                        "description": "Username atau password salah"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Logout user",
+                "description": "Hapus token aktif user yang sedang login.",
+                "operationId": "fe8f3429cd6979b3b4517e186505f9f9",
+                "responses": {
+                    "200": {
+                        "description": "Logout berhasil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/customers": {
+            "get": {
+                "tags": [
+                    "Customer"
+                ],
+                "summary": "Daftar customer milik sales yang login",
+                "description": "Mengambil list customer yang didaftarkan oleh sales yang sedang login. Mendukung pencarian dan pagination.",
+                "operationId": "2b23ac696cfd81c23807c2c1fd63b0b0",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Cari berdasarkan nama customer (parsial match)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Halaman pagination",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Daftar customer berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Customer"
+                ],
+                "summary": "Daftarkan customer baru (Sales)",
+                "description": "Sales mendaftarkan customer baru beserta foto kunjungan dan koordinat GPS.",
+                "operationId": "428d5533c8386f91d2baf4de69f01468",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "nama_customer",
+                                    "alamat",
+                                    "nomor_telepon",
+                                    "latitude",
+                                    "longitude",
+                                    "photos"
+                                ],
+                                "properties": {
+                                    "nama_customer": {
+                                        "type": "string",
+                                        "example": "Toko Jaya Abadi"
+                                    },
+                                    "alamat": {
+                                        "type": "string",
+                                        "example": "Jl. Merdeka No. 10"
+                                    },
+                                    "nomor_telepon": {
+                                        "type": "string",
+                                        "example": "081234567890"
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": -6.1751
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 106.865
+                                    },
+                                    "photos[]": {
+                                        "description": "1-3 foto (JPG/PNG, max 5MB per file)",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Customer berhasil didaftarkan"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/history": {
+            "get": {
+                "tags": [
+                    "Customer"
+                ],
+                "summary": "Riwayat kunjungan customer milik sales yang login",
+                "description": "List customer dengan filter rentang tanggal kunjungan.",
+                "operationId": "074755d656ca2c63dabe47405d13fb9a",
+                "parameters": [
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-01"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-30"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Riwayat customer berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}": {
+            "get": {
+                "tags": [
+                    "Customer"
+                ],
+                "summary": "Detail customer milik sales yang login",
+                "description": "Mengambil detail satu customer. Hanya bisa diakses oleh sales pemilik data.",
+                "operationId": "d51ce35bfe185b82c242dd4443ffba54",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID customer",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detail customer berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Customer bukan milik sales yang login"
+                    },
+                    "404": {
+                        "description": "Customer tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Customer"
+                ],
+                "summary": "Hapus customer (soft delete)",
+                "description": "Sales menghapus customer miliknya sendiri. Foto akan dihapus dari storage.",
+                "operationId": "634844e24d72540f608f7fd297f5d8b0",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer berhasil dihapus"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan milik sales yang login"
+                    },
+                    "404": {
+                        "description": "Customer tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Masukkan token Sanctum tanpa prefix 'Bearer ' (cukup tokennya saja)",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Endpoint untuk autentikasi user (login & logout)"
+        },
+        {
+            "name": "Customer",
+            "description": "Endpoint untuk sales mengelola data customer yang didaftarkan"
+        },
+        {
+            "name": "Admin - Customer",
+            "description": "Endpoint khusus admin untuk monitoring seluruh customer dari semua sales"
+        }
+    ]
+}
