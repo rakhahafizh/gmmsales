@@ -28,8 +28,13 @@ class AdminCustomerController extends Controller
     )]
     public function index(Request $request)
     {
-        $query = Customer::with(['photos', 'user'])
-            ->latest('visited_at');
+        $query = Customer::with([
+            'photos',
+            'user' => function ($q) {
+                // Include sales yang udah soft-deleted biar audit trail tetep utuh
+                $q->withTrashed()->with('wilayah');
+            }
+        ])->latest('visited_at');
 
         if ($request->filled('start_date')) {
             $query->whereDate('visited_at', '>=', $request->start_date);
@@ -60,7 +65,7 @@ class AdminCustomerController extends Controller
     #[OA\Get(
         path: '/api/admin/customers/{id}',
         summary: 'Detail customer (Admin)',
-        description: 'Admin melihat detail lengkap satu customer beserta info sales dan seluruh foto kunjungan.',
+        description: 'Admin melihat detail lengkap satu customer beserta info sales (termasuk yang sudah dihapus, ditandai dengan is_deleted=true) dan seluruh foto kunjungan.',
         tags: ['Admin - Customer'],
         security: [['bearerAuth' => []]],
         parameters: [
@@ -75,7 +80,12 @@ class AdminCustomerController extends Controller
     )]
     public function show(Request $request, string $id)
     {
-        $customer = Customer::with(['photos', 'user'])->find($id);
+        $customer = Customer::with([
+            'photos',
+            'user' => function ($q) {
+                $q->withTrashed()->with('wilayah');
+            }
+        ])->find($id);
 
         if (!$customer) {
             return response()->json([
@@ -99,11 +109,7 @@ class AdminCustomerController extends Controller
             'latitude' => $customer->latitude,
             'longitude' => $customer->longitude,
             'visited_at' => $customer->visited_at?->toDateTimeString(),
-            'sales' => [
-                'id' => $customer->user?->id,
-                'name' => $customer->user?->name,
-                'username' => $customer->user?->username,
-            ],
+            'sales' => $this->formatSales($customer->user),
             'foto_utama' => $customer->photos->first()?->photo_url,
             'total_foto' => $customer->photos->count(),
         ];
@@ -120,15 +126,29 @@ class AdminCustomerController extends Controller
             'longitude' => $customer->longitude,
             'visited_at' => $customer->visited_at?->toDateTimeString(),
             'created_at' => $customer->created_at->toDateTimeString(),
-            'sales' => [
-                'id' => $customer->user?->id,
-                'name' => $customer->user?->name,
-                'username' => $customer->user?->username,
-            ],
+            'sales' => $this->formatSales($customer->user),
             'photos' => $customer->photos->map(fn($p) => [
                 'id' => $p->id,
                 'photo_url' => $p->photo_url,
             ])->values(),
+        ];
+    }
+
+    /**
+     * Helper: format info sales termasuk wilayah & flag is_deleted.
+     */
+    private function formatSales($user): ?array
+    {
+        if (!$user) {
+            return null;
+        }
+
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'username' => $user->username,
+            'wilayah' => $user->wilayah?->nama,
+            'is_deleted' => $user->trashed(),
         ];
     }
 }
