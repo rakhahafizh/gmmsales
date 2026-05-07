@@ -85,12 +85,12 @@ class CustomerController extends Controller
     #[OA\Get(
         path: '/api/customers',
         summary: 'Daftar customer milik sales yang login',
-        description: 'Mengambil list customer yang didaftarkan oleh sales yang sedang login. Mendukung pencarian dan pagination.',
+        description: 'Mengambil list customer yang didaftarkan oleh sales yang sedang login.',
         tags: ['Customer'],
         security: [['bearerAuth' => []]],
         parameters: [
-            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Cari berdasarkan nama customer (parsial match)', schema: new OA\Schema(type: 'string')),
-            new OA\Parameter(name: 'page', in: 'query', required: false, description: 'Halaman pagination', schema: new OA\Schema(type: 'integer', default: 1)),
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Daftar customer berhasil diambil'),
@@ -123,12 +123,11 @@ class CustomerController extends Controller
     #[OA\Get(
         path: '/api/customers/history',
         summary: 'Riwayat kunjungan customer milik sales yang login',
-        description: 'List customer dengan filter rentang tanggal kunjungan.',
         tags: ['Customer'],
         security: [['bearerAuth' => []]],
         parameters: [
-            new OA\Parameter(name: 'start_date', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date', example: '2026-04-01')),
-            new OA\Parameter(name: 'end_date', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date', example: '2026-04-30')),
+            new OA\Parameter(name: 'start_date', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'end_date', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Riwayat customer berhasil diambil'),
@@ -174,11 +173,10 @@ class CustomerController extends Controller
     #[OA\Get(
         path: '/api/customers/{id}',
         summary: 'Detail customer milik sales yang login',
-        description: 'Mengambil detail satu customer. Hanya bisa diakses oleh sales pemilik data.',
         tags: ['Customer'],
         security: [['bearerAuth' => []]],
         parameters: [
-            new OA\Parameter(name: 'id', in: 'path', required: true, description: 'ID customer', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Detail customer berhasil diambil'),
@@ -209,10 +207,79 @@ class CustomerController extends Controller
         ], 200);
     }
 
+    #[OA\Put(
+        path: '/api/customers/{id}',
+        summary: 'Edit data customer sendiri (Sales)',
+        description: 'Sales mengubah data tekstual customer miliknya. GPS dan foto tidak dapat diubah.',
+        tags: ['Customer'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'nama_customer', type: 'string', example: 'Toko Jaya Abadi Updated'),
+                    new OA\Property(property: 'alamat', type: 'string', example: 'Jl. Merdeka No. 10A'),
+                    new OA\Property(property: 'nomor_telepon', type: 'string', example: '081234567899'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Customer berhasil diupdate'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Bukan milik sales yang login'),
+            new OA\Response(response: 404, description: 'Customer tidak ditemukan'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
+    public function update(Request $request, string $id)
+    {
+        $customer = Customer::find($id);
+
+        if (!$customer) {
+            return response()->json([
+                'message' => 'Customer tidak ditemukan',
+            ], 404);
+        }
+
+        if ($customer->user_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses ke data customer ini',
+            ], 403);
+        }
+
+        $request->validate([
+            'nama_customer' => 'sometimes|string|max:255',
+            'alamat' => 'sometimes|string',
+            'nomor_telepon' => 'sometimes|numeric|digits_between:10,15',
+        ], [
+            'nama_customer.string' => 'Nama customer harus berupa teks.',
+            'nama_customer.max' => 'Nama customer maksimal 255 karakter.',
+            'alamat.string' => 'Alamat harus berupa teks.',
+            'nomor_telepon.numeric' => 'Nomor telepon harus berupa angka.',
+            'nomor_telepon.digits_between' => 'Nomor telepon harus 10-15 digit.',
+        ]);
+
+        $customer->fill($request->only([
+            'nama_customer',
+            'alamat',
+            'nomor_telepon',
+        ]));
+
+        $customer->save();
+        $customer->load('photos');
+
+        return response()->json([
+            'message' => 'Data customer berhasil diupdate',
+            'data' => $this->formatCustomer($customer),
+        ], 200);
+    }
+
     #[OA\Delete(
         path: '/api/customers/{id}',
         summary: 'Hapus customer (soft delete)',
-        description: 'Sales menghapus customer miliknya sendiri. Foto akan dihapus dari storage.',
         tags: ['Customer'],
         security: [['bearerAuth' => []]],
         parameters: [

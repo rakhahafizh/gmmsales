@@ -25,13 +25,13 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Customer', description: 'Endpoint untuk sales mengelola data customer yang didaftarkan')]
 #[OA\Tag(name: 'Admin - Customer', description: 'Endpoint khusus admin untuk monitoring seluruh customer dari semua sales')]
 #[OA\Tag(name: 'Admin - Sales', description: 'Endpoint khusus admin untuk mengelola akun sales (CRUD)')]
-#[OA\Tag(name: 'Profile', description: 'Endpoint untuk mengelola profil user (foto profil)')]
+#[OA\Tag(name: 'Profile', description: 'Endpoint untuk mengelola profil user (foto profil, nomor telepon)')]
 class AuthController extends Controller
 {
     #[OA\Post(
         path: '/api/login',
         summary: 'Login user',
-        description: 'Autentikasi user dengan username & password. Mengembalikan token Sanctum jika berhasil. Akun yang is_active=false tidak dapat login.',
+        description: 'Autentikasi user dengan username & password. Mengembalikan token Sanctum beserta data profil lengkap.',
         tags: ['Auth'],
         requestBody: new OA\RequestBody(
             required: true,
@@ -65,12 +65,13 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // BARU di Iterasi 5: cek apakah akun masih aktif
         if (!$user->is_active) {
             return response()->json([
                 'message' => 'Akun Anda sudah dinonaktifkan, silakan hubungi admin',
             ], 403);
         }
+
+        $user->load('wilayah');
 
         $token = $user->createToken('auth-token')->plainTextToken;
 
@@ -82,7 +83,10 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'username' => $user->username,
                     'role' => $user->role,
-                    'wilayah' => $user->wilayah?->nama,
+                    'nomor_telepon' => $user->nomor_telepon,
+                    'wilayah_id' => $user->wilayah_id,
+                    'wilayah_nama' => $user->wilayah?->nama,
+                    'is_active' => $user->is_active,
                     'photo_url' => $user->photo_url,
                 ],
                 'token' => $token,
