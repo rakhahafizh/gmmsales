@@ -8,10 +8,32 @@ use OpenApi\Attributes as OA;
 
 class ProfileController extends Controller
 {
+    #[OA\Get(
+        path: '/api/profile',
+        summary: 'Ambil data profil sendiri',
+        description: 'User (admin atau sales) mengambil data profil pribadi yang sedang login.',
+        tags: ['Profile'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Profil berhasil diambil'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+        ]
+    )]
+    public function show(Request $request)
+    {
+        $user = $request->user();
+        $user->load('wilayah');
+
+        return response()->json([
+            'message' => 'Profil berhasil diambil',
+            'data' => $this->formatProfile($user),
+        ], 200);
+    }
+
     #[OA\Put(
         path: '/api/profile',
         summary: 'Edit profil sendiri',
-        description: 'User (admin atau sales) mengubah nomor telepon pribadi.',
+        description: 'User (admin atau sales) mengubah data profil pribadi. Saat ini hanya nomor telepon yang dapat diubah.',
         tags: ['Profile'],
         security: [['bearerAuth' => []]],
         requestBody: new OA\RequestBody(
@@ -43,22 +65,11 @@ class ProfileController extends Controller
         $user->update([
             'nomor_telepon' => $request->nomor_telepon,
         ]);
-
         $user->load('wilayah');
 
         return response()->json([
             'message' => 'Profil berhasil diupdate',
-            'data' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'username' => $user->username,
-                'role' => $user->role,
-                'nomor_telepon' => $user->nomor_telepon,
-                'wilayah_id' => $user->wilayah_id,
-                'wilayah_nama' => $user->wilayah?->nama,
-                'is_active' => $user->is_active,
-                'photo_url' => $user->photo_url,
-            ],
+            'data' => $this->formatProfile($user),
         ], 200);
     }
 
@@ -123,5 +134,20 @@ class ProfileController extends Controller
                 'photo_url' => $user->fresh()->photo_url,
             ],
         ], 200);
+    }
+
+    private function formatProfile($user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'username' => $user->username,
+            'role' => $user->role,
+            'nomor_telepon' => $user->nomor_telepon,
+            'wilayah_id' => $user->wilayah_id,
+            'wilayah_nama' => $user->wilayah?->nama,
+            'is_active' => $user->is_active,
+            'photo_url' => $user->photo_url,
+        ];
     }
 }
