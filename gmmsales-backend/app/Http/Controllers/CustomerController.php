@@ -13,7 +13,7 @@ class CustomerController extends Controller
     #[OA\Post(
         path: '/api/customers',
         summary: 'Daftarkan customer baru (Sales)',
-        description: 'Sales mendaftarkan customer baru beserta foto kunjungan dan koordinat GPS.',
+        description: 'Sales mendaftarkan customer baru beserta foto kunjungan, koordinat GPS, dan produk yang ditawarkan. Akan otomatis menandai sales sebagai aktif hari ini.',
         tags: ['Customer'],
         security: [['bearerAuth' => []]],
         requestBody: new OA\RequestBody(
@@ -21,13 +21,14 @@ class CustomerController extends Controller
             content: new OA\MediaType(
                 mediaType: 'multipart/form-data',
                 schema: new OA\Schema(
-                    required: ['nama_customer', 'alamat', 'nomor_telepon', 'latitude', 'longitude', 'photos'],
+                    required: ['nama_customer', 'alamat', 'nomor_telepon', 'latitude', 'longitude', 'product_id', 'photos'],
                     properties: [
                         new OA\Property(property: 'nama_customer', type: 'string', example: 'Toko Jaya Abadi'),
                         new OA\Property(property: 'alamat', type: 'string', example: 'Jl. Merdeka No. 10'),
                         new OA\Property(property: 'nomor_telepon', type: 'string', example: '081234567890'),
                         new OA\Property(property: 'latitude', type: 'number', format: 'float', example: -6.1751),
                         new OA\Property(property: 'longitude', type: 'number', format: 'float', example: 106.865),
+                        new OA\Property(property: 'product_id', type: 'integer', example: 3),
                         new OA\Property(
                             property: 'photos[]',
                             type: 'array',
@@ -52,12 +53,19 @@ class CustomerController extends Controller
             'nomor_telepon' => 'required|numeric|digits_between:10,15',
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
+            'product_id' => 'required|exists:products,id',
             'photos' => 'required|array|min:1|max:3',
             'photos.*' => 'required|file|mimes:jpeg,jpg,png|max:5120',
+        ], [
+            'product_id.required' => 'Produk wajib dipilih.',
+            'product_id.exists' => 'Produk tidak ditemukan.',
         ]);
 
+        $user = $request->user();
+
         $customer = Customer::create([
-            'user_id' => $request->user()->id,
+            'user_id' => $user->id,
+            'product_id' => $request->product_id,
             'nama_customer' => $request->nama_customer,
             'alamat' => $request->alamat,
             'nomor_telepon' => $request->nomor_telepon,
@@ -74,7 +82,11 @@ class CustomerController extends Controller
             ]);
         }
 
-        $customer->load('photos');
+        if (!$user->is_active) {
+            $user->update(['is_active' => true]);
+        }
+
+        $customer->load('photos', 'product');
 
         return response()->json([
             'message' => 'Customer berhasil didaftarkan',
@@ -85,7 +97,6 @@ class CustomerController extends Controller
     #[OA\Get(
         path: '/api/customers',
         summary: 'Daftar customer milik sales yang login',
-        description: 'Mengambil list customer yang didaftarkan oleh sales yang sedang login.',
         tags: ['Customer'],
         security: [['bearerAuth' => []]],
         parameters: [
@@ -99,7 +110,7 @@ class CustomerController extends Controller
     )]
     public function index(Request $request)
     {
-        $query = Customer::with('photos')
+        $query = Customer::with(['photos', 'product'])
             ->where('user_id', $request->user()->id);
 
         if ($request->filled('search')) {
@@ -136,7 +147,7 @@ class CustomerController extends Controller
     )]
     public function history(Request $request)
     {
-        $query = Customer::with('photos')
+        $query = Customer::with(['photos', 'product'])
             ->where('user_id', $request->user()->id)
             ->orderBy('visited_at', 'desc');
 
@@ -158,6 +169,7 @@ class CustomerController extends Controller
                     'nama_customer' => $customer->nama_customer,
                     'alamat' => $customer->alamat,
                     'foto_utama' => $customer->photos->first()?->photo_url ?? null,
+                    'produk' => $customer->product?->nama_produk,
                     'tanggal_pendaftaran' => $customer->visited_at,
                 ];
             }),
@@ -187,7 +199,7 @@ class CustomerController extends Controller
     )]
     public function show(Request $request, string $id)
     {
-        $customer = Customer::with('photos')->find($id);
+        $customer = Customer::with(['photos', 'product'])->find($id);
 
         if (!$customer) {
             return response()->json([
@@ -210,7 +222,7 @@ class CustomerController extends Controller
     #[OA\Put(
         path: '/api/customers/{id}',
         summary: 'Edit data customer sendiri (Sales)',
-        description: 'Sales mengubah data tekstual customer miliknya. GPS dan foto tidak dapat diubah.',
+        description: 'Sales mengubah data tekstual customer miliknya termasuk pilihan produk. GPS dan foto tidak dapat diubah.',
         tags: ['Customer'],
         security: [['bearerAuth' => []]],
         parameters: [
@@ -223,6 +235,7 @@ class CustomerController extends Controller
                     new OA\Property(property: 'nama_customer', type: 'string', example: 'Toko Jaya Abadi Updated'),
                     new OA\Property(property: 'alamat', type: 'string', example: 'Jl. Merdeka No. 10A'),
                     new OA\Property(property: 'nomor_telepon', type: 'string', example: '081234567899'),
+                    new OA\Property(property: 'product_id', type: 'integer', example: 5),
                 ]
             )
         ),
@@ -254,22 +267,25 @@ class CustomerController extends Controller
             'nama_customer' => 'sometimes|string|max:255',
             'alamat' => 'sometimes|string',
             'nomor_telepon' => 'sometimes|numeric|digits_between:10,15',
+            'product_id' => 'sometimes|exists:products,id',
         ], [
             'nama_customer.string' => 'Nama customer harus berupa teks.',
             'nama_customer.max' => 'Nama customer maksimal 255 karakter.',
             'alamat.string' => 'Alamat harus berupa teks.',
             'nomor_telepon.numeric' => 'Nomor telepon harus berupa angka.',
             'nomor_telepon.digits_between' => 'Nomor telepon harus 10-15 digit.',
+            'product_id.exists' => 'Produk tidak ditemukan.',
         ]);
 
         $customer->fill($request->only([
             'nama_customer',
             'alamat',
             'nomor_telepon',
+            'product_id',
         ]));
 
         $customer->save();
-        $customer->load('photos');
+        $customer->load('photos', 'product');
 
         return response()->json([
             'message' => 'Data customer berhasil diupdate',
@@ -309,7 +325,7 @@ class CustomerController extends Controller
         }
 
         foreach ($customer->photos as $photo) {
-            Storage::delete($photo->photo_path);
+            Storage::disk('public')->delete($photo->photo_path);
             $photo->delete();
         }
 
@@ -331,6 +347,11 @@ class CustomerController extends Controller
             'longitude' => $customer->longitude,
             'visited_at' => $customer->visited_at?->toDateTimeString(),
             'created_at' => $customer->created_at->toDateTimeString(),
+            'product' => $customer->product ? [
+                'id' => $customer->product->id,
+                'nama_produk' => $customer->product->nama_produk,
+                'harga' => (float) $customer->product->harga,
+            ] : null,
             'photos' => $customer->photos->map(fn($p) => [
                 'id' => $p->id,
                 'photo_url' => $p->photo_url,

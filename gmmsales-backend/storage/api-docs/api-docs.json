@@ -22,45 +22,47 @@
                     "Admin - Customer"
                 ],
                 "summary": "Daftar semua customer dari seluruh sales (Admin)",
-                "description": "Admin melihat list semua customer beserta info sales yang mendaftarkan. Mendukung filter tanggal dan sales_id.",
+                "description": "Admin melihat list semua customer beserta info sales yang mendaftarkan. Mendukung filter tanggal, sales_id, dan pencarian berdasarkan nama customer.",
                 "operationId": "b6f680074bf044ddc711ba76a8607715",
                 "parameters": [
                     {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Cari berdasarkan nama customer",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
                         "name": "start_date",
                         "in": "query",
-                        "description": "Filter tanggal mulai (YYYY-MM-DD)",
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "format": "date",
-                            "example": "2026-04-01"
+                            "format": "date"
                         }
                     },
                     {
                         "name": "end_date",
                         "in": "query",
-                        "description": "Filter tanggal akhir (YYYY-MM-DD)",
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "format": "date",
-                            "example": "2026-04-30"
+                            "format": "date"
                         }
                     },
                     {
                         "name": "sales_id",
                         "in": "query",
-                        "description": "Filter berdasarkan ID sales tertentu",
                         "required": false,
                         "schema": {
-                            "type": "integer",
-                            "example": 3
+                            "type": "integer"
                         }
                     },
                     {
                         "name": "page",
                         "in": "query",
-                        "description": "Halaman pagination",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -92,7 +94,6 @@
                     "Admin - Customer"
                 ],
                 "summary": "Detail customer (Admin)",
-                "description": "Admin melihat detail lengkap satu customer beserta info sales (termasuk yang sudah dihapus, ditandai dengan is_deleted=true) dan seluruh foto kunjungan.",
                 "operationId": "480636e03a521c34eae4ab7b1e7b3c28",
                 "parameters": [
                     {
@@ -123,6 +124,146 @@
                         "bearerAuth": []
                     }
                 ]
+            },
+            "put": {
+                "tags": [
+                    "Admin - Customer"
+                ],
+                "summary": "Edit data customer milik sales manapun (Admin)",
+                "description": "Admin mengubah data customer secara penuh termasuk koordinat GPS dan foto. Jika field photos dikirim, foto lama akan diganti dengan yang baru (replace all).",
+                "operationId": "d0c130ba1854bc1837b6e57ea09177f8",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "nama_customer": {
+                                        "type": "string"
+                                    },
+                                    "alamat": {
+                                        "type": "string"
+                                    },
+                                    "nomor_telepon": {
+                                        "type": "string"
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float"
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float"
+                                    },
+                                    "photos[]": {
+                                        "description": "Opsional. Jika dikirim, foto lama dihapus dan diganti dengan yang baru",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Customer berhasil diupdate"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan role admin"
+                    },
+                    "404": {
+                        "description": "Customer tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Admin - Customer"
+                ],
+                "summary": "Hapus customer (Admin) - soft delete",
+                "description": "Admin menghapus customer secara soft delete. Seluruh foto akan dihapus dari storage.",
+                "operationId": "2c182548c769e99d2c566e3bd2d77aba",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer berhasil dihapus"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan role admin"
+                    },
+                    "404": {
+                        "description": "Customer tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/dashboard": {
+            "get": {
+                "tags": [
+                    "Admin - Dashboard"
+                ],
+                "summary": "Dashboard statistik tim sales (Admin)",
+                "description": "Mengembalikan statistik jumlah sales yang sudah submit hari ini, total sales aktif, dan 3 kunjungan terbaru hari ini.",
+                "operationId": "97acf12e9dd8231f6a9cbd262c54c20c",
+                "responses": {
+                    "200": {
+                        "description": "Dashboard berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan role admin"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/admin/sales": {
@@ -130,35 +271,23 @@
                 "tags": [
                     "Admin - Sales"
                 ],
-                "summary": "Daftar sales dengan filter (Admin)",
-                "description": "Admin melihat list sales dengan dukungan search (nama/username), filter wilayah, dan filter status aktif.",
+                "summary": "Daftar semua sales (Admin)",
                 "operationId": "4b54ffd4594e487bb4e0fb53e89c17e1",
                 "parameters": [
                     {
                         "name": "search",
                         "in": "query",
-                        "description": "Cari nama atau username",
                         "required": false,
                         "schema": {
                             "type": "string"
                         }
                     },
                     {
-                        "name": "wok_id",
+                        "name": "wilayah_id",
                         "in": "query",
-                        "description": "Filter wilayah ID",
                         "required": false,
                         "schema": {
                             "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "is_active",
-                        "in": "query",
-                        "description": "Filter status aktif (true/false)",
-                        "required": false,
-                        "schema": {
-                            "type": "boolean"
                         }
                     },
                     {
@@ -192,8 +321,7 @@
                 "tags": [
                     "Admin - Sales"
                 ],
-                "summary": "Tambah akun sales baru (Admin)",
-                "description": "Admin membuat akun sales baru. Role otomatis sales, is_active default true, password di-hash.",
+                "summary": "Tambah sales baru (Admin)",
                 "operationId": "0543d6fd9b676958243637408b875f97",
                 "requestBody": {
                     "required": true,
@@ -210,16 +338,15 @@
                                 "properties": {
                                     "name": {
                                         "type": "string",
-                                        "example": "Eko Saputra"
+                                        "example": "Budi Santoso"
                                     },
                                     "username": {
                                         "type": "string",
-                                        "example": "eko"
+                                        "example": "budi"
                                     },
                                     "password": {
                                         "type": "string",
-                                        "format": "password",
-                                        "example": "password"
+                                        "example": "password123"
                                     },
                                     "nomor_telepon": {
                                         "type": "string",
@@ -237,7 +364,7 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Sales berhasil ditambahkan"
+                        "description": "Sales berhasil dibuat"
                     },
                     "401": {
                         "description": "Unauthenticated"
@@ -246,7 +373,7 @@
                         "description": "Bukan role admin"
                     },
                     "422": {
-                        "description": "Validation error (username sudah dipakai, dll)"
+                        "description": "Validation error"
                     }
                 },
                 "security": [
@@ -261,8 +388,7 @@
                 "tags": [
                     "Admin - Sales"
                 ],
-                "summary": "Detail sales beserta 3 customer terbaru (Admin)",
-                "description": "Admin lihat detail sales lengkap. Untuk semua customer milik sales ini, gunakan GET /api/admin/customers?sales_id={id}.",
+                "summary": "Detail sales (Admin)",
                 "operationId": "8dc6fc9fa57d07e47233e0ec0100ac53",
                 "parameters": [
                     {
@@ -299,7 +425,7 @@
                     "Admin - Sales"
                 ],
                 "summary": "Edit data sales (Admin)",
-                "description": "Admin mengubah data sales: name, nomor_telepon, wilayah_id, is_active, dan password (opsional). Username dan role tidak bisa diubah. Admin tidak bisa nonaktifkan diri sendiri.",
+                "description": "Admin mengubah data sales. Field is_active tidak dapat diubah secara manual karena bersifat auto-managed (set true saat sales submit customer, reset false tiap tengah malam).",
                 "operationId": "3e1bcc596776b04ff273d587a1ebf187",
                 "parameters": [
                     {
@@ -318,25 +444,17 @@
                             "schema": {
                                 "properties": {
                                     "name": {
-                                        "type": "string",
-                                        "example": "Budi Santoso Updated"
+                                        "type": "string"
                                     },
                                     "nomor_telepon": {
-                                        "type": "string",
-                                        "example": "081234567899"
+                                        "type": "string"
                                     },
                                     "wilayah_id": {
-                                        "type": "integer",
-                                        "example": 2
-                                    },
-                                    "is_active": {
-                                        "type": "boolean",
-                                        "example": true
+                                        "type": "integer"
                                     },
                                     "password": {
                                         "description": "Opsional, untuk reset password",
-                                        "type": "string",
-                                        "format": "password"
+                                        "type": "string"
                                     }
                                 },
                                 "type": "object"
@@ -352,7 +470,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "Bukan admin / Admin nonaktifkan diri sendiri"
+                        "description": "Bukan role admin"
                     },
                     "404": {
                         "description": "Sales tidak ditemukan"
@@ -371,8 +489,7 @@
                 "tags": [
                     "Admin - Sales"
                 ],
-                "summary": "Hapus akun sales (Admin) - soft delete",
-                "description": "Admin menghapus sales secara soft delete. Customer milik sales tersebut tetap ada di database. Admin tidak bisa hapus akun sendiri.",
+                "summary": "Hapus sales (soft delete)",
                 "operationId": "6110e9f9991475454325e267cd3f509d",
                 "parameters": [
                     {
@@ -392,7 +509,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "Bukan admin / Admin hapus diri sendiri"
+                        "description": "Bukan role admin"
                     },
                     "404": {
                         "description": "Sales tidak ditemukan"
@@ -411,7 +528,7 @@
                     "Auth"
                 ],
                 "summary": "Login user",
-                "description": "Autentikasi user dengan username & password. Mengembalikan token Sanctum jika berhasil. Akun yang is_active=false tidak dapat login.",
+                "description": "Autentikasi user dengan username & password. Mengembalikan token Sanctum beserta data profil lengkap.",
                 "operationId": "a3b306d14572d1f4bd6c064b3233e7b8",
                 "requestBody": {
                     "required": true,
@@ -483,13 +600,11 @@
                     "Customer"
                 ],
                 "summary": "Daftar customer milik sales yang login",
-                "description": "Mengambil list customer yang didaftarkan oleh sales yang sedang login. Mendukung pencarian dan pagination.",
                 "operationId": "2b23ac696cfd81c23807c2c1fd63b0b0",
                 "parameters": [
                     {
                         "name": "search",
                         "in": "query",
-                        "description": "Cari berdasarkan nama customer (parsial match)",
                         "required": false,
                         "schema": {
                             "type": "string"
@@ -498,7 +613,6 @@
                     {
                         "name": "page",
                         "in": "query",
-                        "description": "Halaman pagination",
                         "required": false,
                         "schema": {
                             "type": "integer",
@@ -525,7 +639,7 @@
                     "Customer"
                 ],
                 "summary": "Daftarkan customer baru (Sales)",
-                "description": "Sales mendaftarkan customer baru beserta foto kunjungan dan koordinat GPS.",
+                "description": "Sales mendaftarkan customer baru beserta foto kunjungan, koordinat GPS, dan produk yang ditawarkan. Akan otomatis menandai sales sebagai aktif hari ini.",
                 "operationId": "428d5533c8386f91d2baf4de69f01468",
                 "requestBody": {
                     "required": true,
@@ -538,6 +652,7 @@
                                     "nomor_telepon",
                                     "latitude",
                                     "longitude",
+                                    "product_id",
                                     "photos"
                                 ],
                                 "properties": {
@@ -562,6 +677,10 @@
                                         "type": "number",
                                         "format": "float",
                                         "example": 106.865
+                                    },
+                                    "product_id": {
+                                        "type": "integer",
+                                        "example": 3
                                     },
                                     "photos[]": {
                                         "description": "1-3 foto (JPG/PNG, max 5MB per file)",
@@ -601,7 +720,6 @@
                     "Customer"
                 ],
                 "summary": "Riwayat kunjungan customer milik sales yang login",
-                "description": "List customer dengan filter rentang tanggal kunjungan.",
                 "operationId": "074755d656ca2c63dabe47405d13fb9a",
                 "parameters": [
                     {
@@ -610,8 +728,7 @@
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "format": "date",
-                            "example": "2026-04-01"
+                            "format": "date"
                         }
                     },
                     {
@@ -620,8 +737,7 @@
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "format": "date",
-                            "example": "2026-04-30"
+                            "format": "date"
                         }
                     }
                 ],
@@ -646,13 +762,11 @@
                     "Customer"
                 ],
                 "summary": "Detail customer milik sales yang login",
-                "description": "Mengambil detail satu customer. Hanya bisa diakses oleh sales pemilik data.",
                 "operationId": "d51ce35bfe185b82c242dd4443ffba54",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
-                        "description": "ID customer",
                         "required": true,
                         "schema": {
                             "type": "integer"
@@ -679,12 +793,79 @@
                     }
                 ]
             },
+            "put": {
+                "tags": [
+                    "Customer"
+                ],
+                "summary": "Edit data customer sendiri (Sales)",
+                "description": "Sales mengubah data tekstual customer miliknya termasuk pilihan produk. GPS dan foto tidak dapat diubah.",
+                "operationId": "07a3f33c1373d3c6a97b7d8846d81472",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "nama_customer": {
+                                        "type": "string",
+                                        "example": "Toko Jaya Abadi Updated"
+                                    },
+                                    "alamat": {
+                                        "type": "string",
+                                        "example": "Jl. Merdeka No. 10A"
+                                    },
+                                    "nomor_telepon": {
+                                        "type": "string",
+                                        "example": "081234567899"
+                                    },
+                                    "product_id": {
+                                        "type": "integer",
+                                        "example": 5
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Customer berhasil diupdate"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan milik sales yang login"
+                    },
+                    "404": {
+                        "description": "Customer tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
             "delete": {
                 "tags": [
                     "Customer"
                 ],
                 "summary": "Hapus customer (soft delete)",
-                "description": "Sales menghapus customer miliknya sendiri. Foto akan dihapus dari storage.",
                 "operationId": "634844e24d72540f608f7fd297f5d8b0",
                 "parameters": [
                     {
@@ -708,6 +889,255 @@
                     },
                     "404": {
                         "description": "Customer tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/products": {
+            "get": {
+                "tags": [
+                    "Product"
+                ],
+                "summary": "Daftar semua produk",
+                "description": "Mengambil seluruh daftar produk yang tersedia. Dapat diakses oleh semua user yang sudah login untuk keperluan dropdown saat mendaftarkan customer.",
+                "operationId": "1bfaa78d1c2c3848ab8165c5dadcad3e",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Cari produk berdasarkan nama",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Daftar produk berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/products": {
+            "post": {
+                "tags": [
+                    "Admin - Product"
+                ],
+                "summary": "Tambah produk baru (Admin)",
+                "operationId": "a19f84741edc4e6e9599d1d0ed8b3360",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "nama_produk",
+                                    "harga"
+                                ],
+                                "properties": {
+                                    "nama_produk": {
+                                        "type": "string",
+                                        "example": "50 Mbps Internet"
+                                    },
+                                    "harga": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 270000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Produk berhasil ditambahkan"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan role admin"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/products/{id}": {
+            "put": {
+                "tags": [
+                    "Admin - Product"
+                ],
+                "summary": "Edit produk (Admin)",
+                "operationId": "93fb5210f414ef18ce2972f108e980f2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "nama_produk": {
+                                        "type": "string"
+                                    },
+                                    "harga": {
+                                        "type": "number",
+                                        "format": "float"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Produk berhasil diupdate"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan role admin"
+                    },
+                    "404": {
+                        "description": "Produk tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Admin - Product"
+                ],
+                "summary": "Hapus produk (Admin)",
+                "operationId": "9167119fd9d754c7b03fb0afd13400f8",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Produk berhasil dihapus"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Bukan role admin"
+                    },
+                    "404": {
+                        "description": "Produk tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/profile": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Ambil data profil sendiri",
+                "description": "User (admin atau sales) mengambil data profil pribadi yang sedang login.",
+                "operationId": "ede45b19680d6fb1319013a741a05734",
+                "responses": {
+                    "200": {
+                        "description": "Profil berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Edit profil sendiri",
+                "description": "User (admin atau sales) mengubah data profil pribadi. Saat ini hanya nomor telepon yang dapat diubah.",
+                "operationId": "b927bf00923c712a27589c6a510ebbf5",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "nomor_telepon"
+                                ],
+                                "properties": {
+                                    "nomor_telepon": {
+                                        "type": "string",
+                                        "example": "081234567890"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Profil berhasil diupdate"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "422": {
+                        "description": "Format nomor telepon tidak valid"
                     }
                 },
                 "security": [
@@ -793,7 +1223,19 @@
         },
         {
             "name": "Profile",
-            "description": "Endpoint untuk mengelola profil user (foto profil)"
+            "description": "Endpoint untuk mengelola profil user (foto profil, nomor telepon)"
+        },
+        {
+            "name": "Admin - Dashboard",
+            "description": "Admin - Dashboard"
+        },
+        {
+            "name": "Product",
+            "description": "Product"
+        },
+        {
+            "name": "Admin - Product",
+            "description": "Admin - Product"
         }
     ]
 }

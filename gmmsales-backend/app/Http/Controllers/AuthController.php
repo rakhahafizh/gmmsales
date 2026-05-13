@@ -22,16 +22,20 @@ use OpenApi\Attributes as OA;
     description: "Masukkan token Sanctum tanpa prefix 'Bearer ' (cukup tokennya saja)"
 )]
 #[OA\Tag(name: 'Auth', description: 'Endpoint untuk autentikasi user (login & logout)')]
+#[OA\Tag(name: 'Profile', description: 'Endpoint untuk mengelola profil user (foto profil, nomor telepon)')]
 #[OA\Tag(name: 'Customer', description: 'Endpoint untuk sales mengelola data customer yang didaftarkan')]
 #[OA\Tag(name: 'Admin - Customer', description: 'Endpoint khusus admin untuk monitoring seluruh customer dari semua sales')]
 #[OA\Tag(name: 'Admin - Sales', description: 'Endpoint khusus admin untuk mengelola akun sales (CRUD)')]
-#[OA\Tag(name: 'Profile', description: 'Endpoint untuk mengelola profil user (foto profil, nomor telepon)')]
+#[OA\Tag(name: 'Product', description: 'Endpoint daftar produk untuk dropdown saat mendaftarkan customer')]
+#[OA\Tag(name: 'Admin - Product', description: 'Endpoint khusus admin untuk CRUD produk')]
+#[OA\Tag(name: 'Dashboard', description: 'Endpoint dashboard progress harian sales')]
+#[OA\Tag(name: 'Admin - Dashboard', description: 'Endpoint dashboard monitoring tim sales untuk admin')]
 class AuthController extends Controller
 {
     #[OA\Post(
         path: '/api/login',
         summary: 'Login user',
-        description: 'Autentikasi user dengan username & password. Mengembalikan token Sanctum beserta data profil lengkap.',
+        description: 'Autentikasi user dengan username & password. Mengembalikan token Sanctum beserta data profil lengkap. Akun yang sudah dinonaktifkan (di-soft delete) tidak dapat login.',
         tags: ['Auth'],
         requestBody: new OA\RequestBody(
             required: true,
@@ -46,7 +50,6 @@ class AuthController extends Controller
         responses: [
             new OA\Response(response: 200, description: 'Login berhasil'),
             new OA\Response(response: 401, description: 'Username atau password salah'),
-            new OA\Response(response: 403, description: 'Akun dinonaktifkan'),
             new OA\Response(response: 422, description: 'Validation error'),
         ]
     )]
@@ -63,12 +66,6 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Username atau password salah',
             ], 401);
-        }
-
-        if (!$user->is_active) {
-            return response()->json([
-                'message' => 'Akun Anda sudah dinonaktifkan, silakan hubungi admin',
-            ], 403);
         }
 
         $user->load('wilayah');
